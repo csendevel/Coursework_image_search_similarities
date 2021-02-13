@@ -19,7 +19,7 @@ from lxml import html
 #new features
 arts_features = ('Original Title', 'Date', 'Style', 'Period', 'Genre', 'Media', 'Location', 'Wikipedia article', 'References', 'Wikiart art url', 'Wikiart image url')
 
-my_dataset = pd.read_csv('D:/Valera/MFPR/SPbSU/Task/Coursework 3 term/dataset.csv') #dataset for new features
+my_dataset = pd.read_csv('./dataset.csv') #dataset for new features
 
 author_page_link = {} 
 
@@ -186,8 +186,6 @@ def find_art(art_author, art_name, art_link):
 
     return ref
 
-#print(find_art("Lorenzo Lotto", "https://uploads1.wikiart.org/images/lorenzo-lotto/the-angel-of-the-annunciation-1527.jpg!Large.jpg"))
-
 my_dataset['References'] = ''
 my_dataset['Wikipedia article'] = ''
 my_dataset['Date'] = ''
@@ -257,7 +255,6 @@ for i in range(k, n):
     print(i, "success")
 
 #data export
-my_dataset.to_excel('D:/Valera/MFPR/SPbSU/Task/Coursework 3 term/new_dataset_2.xlsx')
+my_dataset.to_excel('./new_dataset_2.xlsx')
 
-my_dataset.to_csv('D:/Valera/MFPR/SPbSU/Task/Coursework 3 term/dataset.csv', index =False)
-#print(my_dataset)
+my_dataset.to_csv('./dataset.csv', index =False)
