@@ -54,6 +54,8 @@ def find_author_page(author):
     
     author_info = soup.find('div', {'class' : 'artist-name'})
 
+    author_link = ''
+
     if author_info:
         author_link = author_info.find('a', {'class' : 'ng-binding'})
         if author_link:
@@ -70,6 +72,7 @@ def find_author_page(author):
 
 
 def image_difference(image_link1, image_link2):
+    
     headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 6.0; WOW64; rv:24.0) Gecko/20100101 Firefox/24.0',
     'ACCEPT-ENCODING' : 'gzip, deflate, br',
@@ -115,7 +118,7 @@ def image_difference(image_link1, image_link2):
 
     return mssim
 
-def find_art(art_author, art_name, art_link):
+def find_art(art_author, art_link):
     art_author_link = find_author_page(art_author)
 
     if(art_author_link == ''):
@@ -163,13 +166,7 @@ def find_art(art_author, art_name, art_link):
             break
 
     return ref
-
-#print(find_art("Lorenzo Lotto", "https://uploads1.wikiart.org/images/lorenzo-lotto/the-angel-of-the-annunciation-1527.jpg!Large.jpg"))
-
-#print(image_difference('https://www.sothebys.com/content/dam/stb/lots/N08/N08792/504N08792_64TNMR.jpg', 'https://uploads3.wikiart.org/00209/images/alexander-calder/clown-with-hoop-1931.jpg'))
-
-#print(image_difference('https://www.sothebys.com/content/dam/stb/lots/N08/N08766/137N08766_64PMM.jpg', 'https://www.sothebys.com/content/dam/stb/lots/N08/N08792/504N08792_64TNMR.jpg'))
-
+  
 my_dataset['References'] = ''
 my_dataset['Wikipedia article'] = ''
 my_dataset['Date'] = ''
@@ -195,9 +192,9 @@ for i in range(k, n):
     url = ''
     if(type(art_link) == float):
         if(not math.isnan(art_link)):
-            url = find_art(art_author, art_name, art_link)
+            url = find_art(art_author, art_link)
     elif(art_link != '' and art_link != '—'):
-        url = find_art(art_author, art_name, art_link)
+        url = find_art(art_author, art_link)
 
     if url == '':
         print(i, "success")
