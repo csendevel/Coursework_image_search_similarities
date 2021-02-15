@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import requests
 import os
+import time
 import re
 import copy
 import cv2
@@ -44,6 +45,7 @@ def find_author_page(author):
     options.headless = True
     driver = webdriver.Chrome(executable_path=r'./chromedriver.exe', options=options)
     driver.get(url)
+    time.sleep(1)
 
     if 'Sorry, nothing found' in driver.page_source:
             driver.quit()
@@ -72,7 +74,6 @@ def find_author_page(author):
 
 
 def image_difference(image_link1, image_link2):
-    
     headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 6.0; WOW64; rv:24.0) Gecko/20100101 Firefox/24.0',
     'ACCEPT-ENCODING' : 'gzip, deflate, br',
@@ -80,7 +81,7 @@ def image_difference(image_link1, image_link2):
     'REFERER' : 'https://www.google.com/'
     }
     
-    sz = 70
+    sz = 50
     gray_image1 = None 
     gray_image2 = None
 
@@ -166,7 +167,7 @@ def find_art(art_author, art_link):
             break
 
     return ref
-  
+
 my_dataset['References'] = ''
 my_dataset['Wikipedia article'] = ''
 my_dataset['Date'] = ''
