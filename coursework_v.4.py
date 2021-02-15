@@ -1,4 +1,5 @@
 import random
+import math
 import pandas as pd
 import numpy as np
 import requests
@@ -8,6 +9,7 @@ import copy
 import cv2
 import wget
 import urllib
+import skimage.metrics as skm
 from unidecode import unidecode
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -25,7 +27,7 @@ author_page_link = {}
 
 authors = {} #art text-lists of authors
 
-image_hashes = {}
+images = {}
 
 def normalize_word(word):
     new_word = unidecode(word.lower()).replace('\\','').replace('\'','')
@@ -52,9 +54,10 @@ def find_author_page(author):
     
     author_info = soup.find('div', {'class' : 'artist-name'})
 
-
-    if(author_info):
-        author_link = author_info.find('a', {'class' : 'ng-binding'}).get('href')
+    if author_info:
+        author_link = author_info.find('a', {'class' : 'ng-binding'})
+        if author_link:
+            author_link = author_link.get('href')
     else:
         author_link = ''
 
@@ -66,78 +69,51 @@ def find_author_page(author):
     return author_link
 
 
-def image_difference(image_link1, image_link2, full_image_name_1, full_image_name_2):
-    _hash1=""
-    _hash2=""
-    
+def image_difference(image_link1, image_link2):
     headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 6.0; WOW64; rv:24.0) Gecko/20100101 Firefox/24.0',
     'ACCEPT-ENCODING' : 'gzip, deflate, br',
     'ACCEPT-LANGUAGE' : 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
     'REFERER' : 'https://www.google.com/'
     }
+    
+    sz = 70
+    gray_image1 = None 
+    gray_image2 = None
 
-    if(full_image_name_1 in image_hashes):
-        _hash1 = image_hashes[full_image_name_1]
-    else:
+    if(not image_link1 in images):
         img1 = requests.get(image_link1, headers = headers)
         out = open(".\img1.jpg", "wb")
         out.write(img1.content)
         out.close()    
 
         image1 = cv2.imread(".\img1.jpg")
-        resized = cv2.resize(image1, (8,8), interpolation = cv2.INTER_AREA) 
-        gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        avg=gray_image.mean()
-        ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
+        resized = cv2.resize(image1, (sz, sz), interpolation = cv2.INTER_AREA) 
+        gray_image1 = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         
         os.remove(".\img1.jpg")
-
-        _hash1=""
-        for x in range(8):
-            for y in range(8):
-                val=threshold_image[x,y]
-                if val==255:
-                    _hash1=_hash1+"1"
-                else:
-                    _hash1=_hash1+"0"
-        image_hashes[full_image_name_1] = _hash1
-
-    if(full_image_name_2 in image_hashes):
-        _hash2 = image_hashes[full_image_name_2]
+        images[image_link1] = copy.deepcopy(gray_image1)
     else:
+        gray_image1 = images[image_link1]
+
+    if(not image_link2 in images):
         img2 = requests.get(image_link2, headers = headers)
         out = open(".\img2.jpg", "wb")
         out.write(img2.content)
         out.close()
-
-        image2 = cv2.imread(".\img2.jpg") 
-        resized = cv2.resize(image2, (8,8), interpolation = cv2.INTER_AREA) 
-        gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        avg=gray_image.mean()
-        ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
         
+        image2 = cv2.imread(".\img2.jpg") 
+        resized = cv2.resize(image2, (sz, sz), interpolation = cv2.INTER_AREA) 
+        gray_image2 = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        images[image_link2] = copy.deepcopy(gray_image2)
+
         os.remove(".\img2.jpg")
+    else:
+        gray_image2 = images[image_link2]
 
-        _hash2=""
-        for x in range(8):
-            for y in range(8):
-                val=threshold_image[x,y]
-                if val==255:
-                    _hash2=_hash2+"1"
-                else:
-                    _hash2=_hash2+"0"
-        image_hashes[full_image_name_2] = _hash2
-    
-    l=len(_hash1)
-    i = 0
-    count = 0
-    while i < l:
-        if _hash1[i] != _hash2[i]:
-            count = count + 1
-        i = i + 1
+    mssim = skm.structural_similarity(gray_image1, gray_image2)
 
-    return count
+    return mssim
 
 def find_art(art_author, art_name, art_link):
     art_author_link = find_author_page(art_author)
@@ -147,7 +123,6 @@ def find_art(art_author, art_name, art_link):
 
     #author all works link
     search_url = 'https://www.wikiart.org' + art_author_link + '/all-works/text-list'
-    
     
     if(not art_author in authors):
         r = requests.get(search_url)
@@ -165,26 +140,35 @@ def find_art(art_author, art_name, art_link):
         art_works = authors[art_author]
 
     ref = ''
-    
+    diff = 0
+
     for names in art_works:
-        art_work_ref = 'https://www.wikiart.org' + names.find('a').get('href')
+        tmp = names.find('a')
+        if tmp != None:
+            art_work_ref = 'https://www.wikiart.org' + tmp.get('href')
+        else:
+            continue
         
         page = requests.get(art_work_ref)
         soup = BeautifulSoup(page.text, 'lxml')
-        
-        tmp_art_name = re.sub('<span>.*</span>|\n', '', names.__repr__())
-        second_art_name = re.sub('\n|<.*?>|\s{2,}?|,|\'', '', tmp_art_name.__repr__())
 
         image_url = soup.find('meta', {'property':'og:image'})
-        valid_image_url = (image_url.__repr__()).split('"')[1]
+        
+        if(image_url != None):
+            valid_image_url = (image_url.__repr__()).split('"')[1]
+            diff = image_difference(art_link, valid_image_url)
 
-        diff = image_difference(art_link, valid_image_url, art_author+art_name, art_author+second_art_name)
-
-        if diff < 8:
+        if diff > 0.8:
             ref = art_work_ref
             break
 
     return ref
+
+#print(find_art("Lorenzo Lotto", "https://uploads1.wikiart.org/images/lorenzo-lotto/the-angel-of-the-annunciation-1527.jpg!Large.jpg"))
+
+#print(image_difference('https://www.sothebys.com/content/dam/stb/lots/N08/N08792/504N08792_64TNMR.jpg', 'https://uploads3.wikiart.org/00209/images/alexander-calder/clown-with-hoop-1931.jpg'))
+
+#print(image_difference('https://www.sothebys.com/content/dam/stb/lots/N08/N08766/137N08766_64PMM.jpg', 'https://www.sothebys.com/content/dam/stb/lots/N08/N08792/504N08792_64TNMR.jpg'))
 
 my_dataset['References'] = ''
 my_dataset['Wikipedia article'] = ''
@@ -200,8 +184,8 @@ my_dataset['Wikiart image url'] = ''
 
 n = len(my_dataset) #arts number
 
-k = 100
-n = 300
+k = 26420
+n = 27020
 
 for i in range(k, n):
     art_author = normalize_word(my_dataset.iloc[i, 2])
@@ -209,7 +193,10 @@ for i in range(k, n):
     art_link = my_dataset.iloc[i, 23]
 
     url = ''
-    if(art_link != '' or art_link != '—'):
+    if(type(art_link) == float):
+        if(not math.isnan(art_link)):
+            url = find_art(art_author, art_name, art_link)
+    elif(art_link != '' and art_link != '—'):
         url = find_art(art_author, art_name, art_link)
 
     if url == '':
@@ -235,11 +222,17 @@ for i in range(k, n):
 
     #find image url for algo v.2
     image_url = soup.find('meta', {'property':'og:image'})
-    valid_image_url = (image_url.__repr__()).split('"')[1]
+    if image_url != None:
+        valid_image_url = (image_url.__repr__()).split('"')[1]
+        my_dataset['Wikiart image url'][i] = valid_image_url
 
-    my_dataset['Wikiart image url'][i] = valid_image_url
-
-    art_info = soup.find('article').find('ul').find_all('li')
+    art_info_t = soup.find('article')
+    art_info_t2 = None
+    
+    if art_info_t != None:
+        art_info_t2 = art_info_t.find('ul')
+        if art_info_t2 != None:
+            art_info = art_info_t2.find_all('li')
 
     if art_info != []:
         features = []
@@ -258,3 +251,4 @@ for i in range(k, n):
 my_dataset.to_excel('./new_dataset_2.xlsx')
 
 my_dataset.to_csv('./dataset.csv', index =False)
+#print(my_dataset)
