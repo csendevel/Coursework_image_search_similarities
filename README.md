@@ -1,5 +1,5 @@
 # Coursework_image_search_similarities
-find_image
+find_image.py
 input: path to image file
 output:
 link on wikiarts.org
