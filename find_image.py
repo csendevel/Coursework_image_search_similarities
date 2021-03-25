@@ -21,26 +21,6 @@ from lxml import html
 
 my_dataset = pd.read_csv('./wikiart_masks.csv') #dataset for new features
 
-def find_image(source):
-    tmp = -2
-    ans = ''
-    for i in range(len(my_dataset)):
-        image_mask = my_dataset.iloc[i, 2]
-        
-        if(type(image_mask) == float):
-            if(math.isnan(image_mask)):
-                continue
-
-        new_image = str_to_ds(image_mask)
-
-        mssim = skm.structural_similarity(source, new_image)
-        if mssim > tmp:
-            tmp = mssim
-            print(tmp)
-            ans = my_dataset.iloc[i, 1]
-
-    return ans
-
 
 def str_to_ds(str):
     values = str.split(',')
@@ -60,7 +40,7 @@ def image_processing(image):
     try:
         _image = cv2.imread(image)
 
-        resized = cv2.resize(img_re, (sz, sz), interpolation = cv2.INTER_AREA) 
+        resized = cv2.resize(_image, (sz, sz), interpolation = cv2.INTER_AREA) 
         gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
     except:
@@ -69,8 +49,28 @@ def image_processing(image):
     return gray_image
 
 
+def find_image(source):
+    tmp = -2
+    ans = ''
+    for i in range(len(my_dataset)):
+        image_mask = my_dataset.iloc[i, 2]
+        
+        if(type(image_mask) == float):
+            if(math.isnan(image_mask)):
+                continue
+
+        new_image = str_to_ds(image_mask)
+
+        mssim = skm.structural_similarity(source, new_image)
+        if mssim > tmp:
+            tmp = mssim
+            #print(tmp)
+            ans = my_dataset.iloc[i, 1]
+
+    return (ans, tmp)
+
 image = input()
 ds = image_processing(image)
-url = find_image(ds)
+(url, mssim) = find_image(ds)
 
 print(url)
