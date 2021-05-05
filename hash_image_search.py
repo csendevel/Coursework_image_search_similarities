@@ -25,6 +25,8 @@ author_page_link = {}
 
 authors = {} #art text-lists of authors
 
+image_hashes = {}
+
 def normalize_word(word):
     new_word = unidecode(word.lower()).replace('\\','').replace('\'','')
     return new_word
@@ -64,47 +66,68 @@ def find_author_page(author):
     return author_link
 
 
-def image_difference(image_link1, image_link2):
-    img2 = requests.get(image_link2)
-    out = open(".\img2.jpg", "wb")
-    out.write(img2.content)
-    out.close()
-
-    img1 = requests.get(image_link1)
-    out = open(".\img1.jpg", "wb")
-    out.write(img1.content)
-    out.close()    
-
-    image1 = cv2.imread(".\img1.jpg")
-    resized = cv2.resize(image1, (8,8), interpolation = cv2.INTER_AREA) 
-    gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-    avg=gray_image.mean()
-    ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
-    
+def image_difference(image_link1, image_link2, full_image_name_1, full_image_name_2):
     _hash1=""
-    for x in range(8):
-        for y in range(8):
-            val=threshold_image[x,y]
-            if val==255:
-                _hash1=_hash1+"1"
-            else:
-                _hash1=_hash1+"0"
-
-
-    image2 = cv2.imread(".\img2.jpg") 
-    resized = cv2.resize(image2, (8,8), interpolation = cv2.INTER_AREA) 
-    gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-    avg=gray_image.mean()
-    ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
-    
     _hash2=""
-    for x in range(8):
-        for y in range(8):
-            val=threshold_image[x,y]
-            if val==255:
-                _hash2=_hash2+"1"
-            else:
-                _hash2=_hash2+"0"
+    
+    headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 6.0; WOW64; rv:24.0) Gecko/20100101 Firefox/24.0',
+    'ACCEPT-ENCODING' : 'gzip, deflate, br',
+    'ACCEPT-LANGUAGE' : 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    'REFERER' : 'https://www.google.com/'
+    }
+
+    if(full_image_name_1 in image_hashes):
+        _hash1 = image_hashes[full_image_name_1]
+    else:
+        img1 = requests.get(image_link1, headers = headers)
+        out = open(".\img1.jpg", "wb")
+        out.write(img1.content)
+        out.close()    
+
+        image1 = cv2.imread(".\img1.jpg")
+        resized = cv2.resize(image1, (8,8), interpolation = cv2.INTER_AREA) 
+        gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        avg=gray_image.mean()
+        ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
+        
+        os.remove(".\img1.jpg")
+
+        _hash1=""
+        for x in range(8):
+            for y in range(8):
+                val=threshold_image[x,y]
+                if val==255:
+                    _hash1=_hash1+"1"
+                else:
+                    _hash1=_hash1+"0"
+        image_hashes[full_image_name_1] = _hash1
+
+    if(full_image_name_2 in image_hashes):
+        _hash2 = image_hashes[full_image_name_2]
+    else:
+        img2 = requests.get(image_link2, headers = headers)
+        out = open(".\img2.jpg", "wb")
+        out.write(img2.content)
+        out.close()
+
+        image2 = cv2.imread(".\img2.jpg") 
+        resized = cv2.resize(image2, (8,8), interpolation = cv2.INTER_AREA) 
+        gray_image = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        avg=gray_image.mean()
+        ret, threshold_image = cv2.threshold(gray_image, avg, 255, 0)     
+        
+        os.remove(".\img2.jpg")
+
+        _hash2=""
+        for x in range(8):
+            for y in range(8):
+                val=threshold_image[x,y]
+                if val==255:
+                    _hash2=_hash2+"1"
+                else:
+                    _hash2=_hash2+"0"
+        image_hashes[full_image_name_2] = _hash2
     
     l=len(_hash1)
     i = 0
@@ -113,13 +136,10 @@ def image_difference(image_link1, image_link2):
         if _hash1[i] != _hash2[i]:
             count = count + 1
         i = i + 1
-    
-    os.remove(".\img1.jpg")
-    os.remove(".\img2.jpg")
 
     return count
 
-def find_art(art_author, art_link):
+def find_art(art_author, art_name, art_link):
     art_author_link = find_author_page(art_author)
 
     if(art_author_link == ''):
@@ -152,44 +172,30 @@ def find_art(art_author, art_link):
         page = requests.get(art_work_ref)
         soup = BeautifulSoup(page.text, 'lxml')
         
+        tmp_art_name = re.sub('<span>.*</span>|\n', '', names.__repr__())
+        second_art_name = re.sub('\n|<.*?>|\s{2,}?|,|\'', '', tmp_art_name.__repr__())
+
         image_url = soup.find('meta', {'property':'og:image'})
         valid_image_url = (image_url.__repr__()).split('"')[1]
 
-        diff = image_difference(art_link, valid_image_url)
+        diff = image_difference(art_link, valid_image_url, art_author+art_name, art_author+second_art_name)
 
-        if diff < 3:
+        if diff < 8:
             ref = art_work_ref
             break
 
     return ref
 
-#print(find_art("Lorenzo Lotto", "https://uploads1.wikiart.org/images/lorenzo-lotto/the-angel-of-the-annunciation-1527.jpg!Large.jpg"))
-
-#print(image_difference("https://www.sothebys.com/content/dam/stb/lots/L11/L11001/L11001-9-lr-1.jpg", "https://uploads1.wikiart.org/images/lorenzo-lotto/the-angel-of-the-annunciation-1527.jpg!Large.jpg"))
-
-#my_dataset['References'] = ''
-#my_dataset['Wikipedia article'] = ''
-#my_dataset['Date'] = ''
-#my_dataset['Location'] = ''
-#my_dataset['Original Title'] = ''
-#my_dataset['Style'] = ''
-#my_dataset['Period'] = ''
-#my_dataset['Genre'] = ''
-#my_dataset['Media'] = ''
-#my_dataset['Wikiart art url'] = ''
-#my_dataset['Wikiart image url'] = ''
-
 n = len(my_dataset) #arts number
 
-k = 19912
-n = 20000
-
-for i in range(k, n):
+for i in range(n):
     art_author = normalize_word(my_dataset.iloc[i, 2])
+    art_name = normalize_word(my_dataset.iloc[i, 3])
     art_link = my_dataset.iloc[i, 23]
 
-    if art_link != '-':
-        url = find_art(art_author, art_link)
+    url = ''
+    if(art_link != '' or art_link != '—'):
+        url = find_art(art_author, art_name, art_link)
 
     if url == '':
         print(i, "success")
@@ -237,4 +243,3 @@ for i in range(k, n):
 my_dataset.to_excel('./new_dataset_2.xlsx')
 
 my_dataset.to_csv('./dataset.csv', index =False)
-#print(my_dataset)
