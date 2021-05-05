@@ -182,9 +182,6 @@ my_dataset['Wikiart image url'] = ''
 
 n = len(my_dataset) #arts number
 
-k = 26420
-n = 27020
-
 for i in range(k, n):
     art_author = normalize_word(my_dataset.iloc[i, 2])
     art_name = normalize_word(my_dataset.iloc[i, 3])
@@ -249,4 +246,3 @@ for i in range(k, n):
 my_dataset.to_excel('./new_dataset_2.xlsx')
 
 my_dataset.to_csv('./dataset.csv', index =False)
-#print(my_dataset)
