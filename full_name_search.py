@@ -6,13 +6,15 @@ import re
 import copy
 from unidecode import unidecode
 from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
+#from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from bs4 import BeautifulSoup
 from lxml import html
 
 #new features
-arts_features = ('Original Title', 'Date', 'Style', 'Period', 'Genre', 'Media', 'Location', 'Wikipedia article', 'References')
+arts_features = ('Original Title', 'Date', 'Style', 'Period', 'Genre', 'Media', 'Location', 'Wikipedia article', 'References', 'Wikiart art url', 'Wikiart image url')
 
 my_dataset = pd.read_csv('./dataset.csv') #dataset for new features
 
@@ -33,7 +35,7 @@ def find_author_page(author):
 
     options = Options()
     options.headless = True
-    driver = webdriver.Firefox(options=options)
+    driver = webdriver.Chrome(executable_path=r'./chromedriver.exe', options=options)
     driver.get(url)
 
     if 'Sorry, nothing found' in driver.page_source:
@@ -96,39 +98,51 @@ def find_art(art_author, art_name):
         art_name = art_name.lower().replace(' ','')
         
         if new_art_name == art_name:
-            art_work_ref = names.find('a').get('href')
+            art_work_ref = names.find('a')
+            if art_work_ref != None:
+                art_work_ref = art_work_ref.get('href')
+            else:
+                break
             ref = 'https://www.wikiart.org' + art_work_ref
             break
 
     return ref
 
-my_dataset['References'] = ''
-my_dataset['Wikipedia article'] = ''
-my_dataset['Date'] = ''
-my_dataset['Location'] = ''
-my_dataset['Original Title'] = ''
-my_dataset['Style'] = ''
-my_dataset['Period'] = ''
-my_dataset['Genre'] = ''
-my_dataset['Media'] = ''
-
 n = len(my_dataset) #arts number
 
 for i in range(n):
-    art_author = normalize_word(my_dataset.iloc[i, 2])
-    art_name = normalize_word(my_dataset.iloc[i, 3])
+    art_author = my_dataset.iloc[i, 2]
     
+    if(type(art_author) != float):
+        if(art_author != '' and art_author != '—'):
+            art_author = normalize_word(art_author)
+        else:
+            art_author = ''
+    else:
+        art_author = ''
+    
+    art_name = my_dataset.iloc[i, 3]
+    
+    if(type(art_name) != float):
+        if(art_name != '' and art_name != '—'):
+            art_name = normalize_word(art_name)
+        else:
+            art_name = ''
+    else:
+        art_name = ''
+
     print(art_author, art_name)
 
     url = find_art(art_author, art_name)
 
-    
     if url == '':
         print(i, "success")
         continue
 
     text = requests.get(url).text
     soup = BeautifulSoup(text, "lxml")
+
+    my_dataset['Wikiart art url'][i] = url
 
     #extract features
     references = soup.find('div', {'class': 'info-tab-links-external'})
@@ -146,9 +160,19 @@ for i in range(n):
     image_url = soup.find('meta', {'property':'og:image'})
     valid_image_url = (image_url.__repr__()).split('"')[1]
 
-    art_info = soup.find('article').find('ul').find_all('li')
+    my_dataset['Wikiart image url'][i] = valid_image_url
 
-    if art_info != []:
+    art_info = soup.find('article')
+    if art_info != None:
+        art_info = art_info.find('ul')
+        if art_info != None:
+            art_info = art_info.find_all('li')
+        else:
+            art_info = ''
+    else:
+        art_info = ''
+
+    if art_info != [] and art_info != '':
         features = []
 
         for item in art_info:
@@ -162,7 +186,7 @@ for i in range(n):
     print(i, "success")
 
 #data export
-my_dataset.to_excel('./new_dataset.xlsx')
-my_dataset.to_csv('./dataset.csv', index =False)
+my_dataset.to_excel('./new_dataset_2.xlsx')
 
+my_dataset.to_csv('./dataset.csv', index =False)
 #print(my_dataset)
