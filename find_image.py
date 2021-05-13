@@ -73,4 +73,7 @@ image = input()
 ds = image_processing(image)
 (url, mssim) = find_image(ds)
 
-print(url)
+if(mssim >= 0.8): 
+    print(url)
+else:
+    print("image not found")
